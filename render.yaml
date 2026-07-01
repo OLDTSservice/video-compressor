@@ -3,6 +3,7 @@ services:
     name: video-compressor
     env: static
     staticPublishPath: .
+    buildCommand: "sed -i \"s/__BUILD_TIME__/$(TZ='Asia/Taipei' date '+%Y-%m-%d %H:%M')/g\" index.html"
     headers:
       - path: /*
         name: Cross-Origin-Opener-Policy
