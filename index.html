@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>影片壓縮工具</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0f1117;
+      --card: #1a1d2e;
+      --card2: #232640;
+      --accent: #7c6af7;
+      --accent2: #4ecdc4;
+      --text: #e2e0f0;
+      --muted: #8b89a8;
+      --border: #2e2c46;
+      --green: #22c55e;
+      --red: #ef4444;
+      --r: 14px;
+    }
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 48px 16px;
+    }
+
+    .header { text-align: center; margin-bottom: 40px; }
+    .header h1 { font-size: 1.9rem; font-weight: 800; letter-spacing: -0.5px; }
+    .header h1 span { background: linear-gradient(135deg, var(--accent), var(--accent2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .header p { color: var(--muted); font-size: 0.9rem; margin-top: 8px; }
+
+    .card {
+      width: 100%; max-width: 540px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      padding: 32px;
+    }
+
+    /* Upload zone */
+    .upload-zone {
+      border: 2px dashed var(--border);
+      border-radius: 12px;
+      padding: 44px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      margin-bottom: 24px;
+    }
+    .upload-zone:hover, .upload-zone.over { border-color: var(--accent); background: rgba(124,106,247,.07); }
+    .upload-zone input { display: none; }
+    .upload-icon { font-size: 2.8rem; margin-bottom: 12px; }
+    .upload-zone h2 { font-size: 1rem; font-weight: 600; margin-bottom: 6px; }
+    .upload-zone h2 span { color: var(--accent); }
+    .upload-zone p { color: var(--muted); font-size: 0.8rem; }
+
+    /* File info */
+    .file-info { display: none; background: var(--card2); border-radius: 10px; padding: 16px; margin-bottom: 24px; gap: 14px; align-items: center; }
+    .file-info.show { display: flex; }
+    .file-thumb { width: 80px; height: 56px; border-radius: 6px; background: #000; overflow: hidden; flex-shrink: 0; }
+    .file-thumb video { width: 100%; height: 100%; object-fit: cover; }
+    .file-details { flex: 1; min-width: 0; }
+    .file-details .name { font-size: 0.85rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 6px; }
+    .file-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+    .chip { background: var(--card); border: 1px solid var(--border); border-radius: 6px; padding: 3px 8px; font-size: 0.72rem; color: var(--muted); }
+    .chip b { color: var(--text); }
+    .btn-change { background: none; border: 1px solid var(--border); border-radius: 6px; padding: 5px 10px; font-size: 0.75rem; color: var(--muted); cursor: pointer; flex-shrink: 0; }
+    .btn-change:hover { color: var(--text); border-color: var(--muted); }
+
+    /* Quality */
+    .section-label { font-size: 0.78rem; color: var(--muted); font-weight: 500; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 10px; }
+    .quality-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 24px; }
+    .q-btn { padding: 12px 8px; border-radius: 10px; border: 1.5px solid var(--border); background: var(--card2); color: var(--text); cursor: pointer; text-align: center; transition: all 0.18s; }
+    .q-btn:hover { border-color: var(--accent); }
+    .q-btn.active { border-color: var(--accent); background: rgba(124,106,247,.15); }
+    .q-btn .q-label { font-size: 0.88rem; font-weight: 700; margin-bottom: 3px; }
+    .q-btn .q-desc { font-size: 0.72rem; color: var(--muted); line-height: 1.3; }
+    .q-btn.active .q-desc { color: var(--accent2); }
+
+    /* Compress btn */
+    .btn-compress {
+      width: 100%; padding: 15px; border-radius: 12px; border: none;
+      font-size: 1rem; font-weight: 700; cursor: pointer; color: #fff;
+      background: linear-gradient(135deg, var(--accent), #9a6cf0);
+      transition: opacity .2s, transform .1s;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+    }
+    .btn-compress:hover:not(:disabled) { opacity: .88; transform: translateY(-1px); }
+    .btn-compress:disabled { opacity: .35; cursor: not-allowed; transform: none; }
+
+    /* Progress */
+    .progress-wrap { display: none; margin-top: 24px; }
+    .progress-wrap.show { display: block; }
+    .progress-top { display: flex; justify-content: space-between; font-size: .82rem; color: var(--muted); margin-bottom: 8px; }
+    .progress-top span:last-child { color: var(--accent2); font-weight: 700; }
+    .bar-bg { height: 6px; background: var(--card2); border-radius: 99px; overflow: hidden; }
+    .bar-fill { height: 100%; border-radius: 99px; background: linear-gradient(90deg, var(--accent), var(--accent2)); transition: width .3s; width: 0; }
+    .progress-log { font-size: .72rem; color: var(--muted); font-family: monospace; margin-top: 6px; height: 16px; overflow: hidden; }
+
+    /* Result */
+    .result-wrap { display: none; margin-top: 24px; }
+    .result-wrap.show { display: block; }
+    .result-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 16px; }
+    .stat { background: var(--card2); border-radius: 10px; padding: 14px 10px; text-align: center; }
+    .stat .v { font-size: 1.1rem; font-weight: 800; color: var(--accent2); }
+    .stat .l { font-size: 0.7rem; color: var(--muted); margin-top: 3px; }
+    .stat-save .v { color: var(--green); }
+    .btn-dl {
+      width: 100%; padding: 13px; border-radius: 12px; border: none;
+      font-size: .95rem; font-weight: 700; cursor: pointer; color: #fff;
+      background: linear-gradient(135deg, var(--green), #16a34a);
+      transition: opacity .2s; margin-bottom: 8px;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+    }
+    .btn-dl:hover { opacity: .88; }
+    .btn-new {
+      width: 100%; padding: 11px; border-radius: 10px;
+      border: 1px solid var(--border); background: none;
+      color: var(--muted); font-size: .85rem; cursor: pointer; transition: color .2s;
+    }
+    .btn-new:hover { color: var(--text); }
+
+    /* Toast */
+    .toast { position: fixed; bottom: 24px; right: 24px; padding: 11px 18px; border-radius: 10px; font-size: .85rem; font-weight: 600; color: #fff; opacity: 0; transform: translateY(8px); transition: all .25s; pointer-events: none; z-index: 99; }
+    .toast.show { opacity: 1; transform: translateY(0); }
+    .toast.ok { background: var(--green); }
+    .toast.err { background: var(--red); }
+    .toast.info { background: var(--accent); }
+
+    .privacy { margin-top: 24px; font-size: 0.75rem; color: var(--muted); text-align: center; }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <h1>🎬 <span>影片壓縮工具</span></h1>
+  <p>上傳影片，壓縮檔案大小並保留最佳畫質，輸出 MP4</p>
+</div>
+
+<div class="card">
+
+  <!-- Upload -->
+  <div class="upload-zone" id="zone" onclick="document.getElementById('fi').click()">
+    <input type="file" id="fi" accept="video/*" />
+    <div class="upload-icon">📤</div>
+    <h2>點擊或拖曳影片至此 <span>上傳</span></h2>
+    <p>支援 MP4、MOV、AVI、MKV、WebM 等格式</p>
+  </div>
+
+  <!-- File info -->
+  <div class="file-info" id="fileInfo">
+    <div class="file-thumb"><video id="thumb" muted></video></div>
+    <div class="file-details">
+      <div class="name" id="fname">—</div>
+      <div class="file-chips">
+        <span class="chip">大小 <b id="fsize">—</b></span>
+        <span class="chip">解析度 <b id="fres">—</b></span>
+        <span class="chip">時長 <b id="fdur">—</b></span>
+      </div>
+    </div>
+    <button class="btn-change" onclick="document.getElementById('fi').click()">更換</button>
+  </div>
+
+  <!-- Quality -->
+  <div class="section-label">壓縮品質</div>
+  <div class="quality-grid">
+    <div class="q-btn" onclick="setQ(this,'high')">
+      <div class="q-label">高畫質</div>
+      <div class="q-desc">輕度壓縮<br>保留細節</div>
+    </div>
+    <div class="q-btn active" onclick="setQ(this,'balanced')">
+      <div class="q-label">平衡 ✦</div>
+      <div class="q-desc">最佳比例<br>推薦選擇</div>
+    </div>
+    <div class="q-btn" onclick="setQ(this,'small')">
+      <div class="q-label">小檔案</div>
+      <div class="q-desc">最大壓縮<br>易於傳輸</div>
+    </div>
+  </div>
+
+  <!-- Compress -->
+  <button class="btn-compress" id="compBtn" disabled onclick="compress()">
+    選擇影片後開始壓縮
+  </button>
+
+  <!-- Progress -->
+  <div class="progress-wrap" id="prog">
+    <div class="progress-top"><span id="progLabel">載入中...</span><span id="progPct">0%</span></div>
+    <div class="bar-bg"><div class="bar-fill" id="fill"></div></div>
+    <div class="progress-log" id="plog"></div>
+  </div>
+
+  <!-- Result -->
+  <div class="result-wrap" id="result">
+    <div class="result-stats">
+      <div class="stat"><div class="v" id="rOrig">—</div><div class="l">原始大小</div></div>
+      <div class="stat"><div class="v" id="rNew">—</div><div class="l">壓縮後大小</div></div>
+      <div class="stat stat-save"><div class="v" id="rSave">—</div><div class="l">節省空間</div></div>
+    </div>
+    <button class="btn-dl" onclick="dl()">⬇️ 下載壓縮後的 MP4</button>
+    <button class="btn-new" onclick="reset()">重新上傳新影片</button>
+  </div>
+</div>
+
+<p class="privacy">🔒 所有處理均在您的瀏覽器本機執行，影片不會上傳至任何伺服器</p>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://unpkg.com/@ffmpeg/ffmpeg@0.12.6/dist/umd/ffmpeg.js"></script>
+<script>
+const Q = {
+  high:     { crf: 20, maxrate: '5000k', scale: 'original' },
+  balanced: { crf: 26, maxrate: '2500k', scale: '1280x720' },
+  small:    { crf: 33, maxrate: '800k',  scale: '854x480'  },
+};
+let quality = 'balanced', ffmpeg = null, file = null, blob = null, outName = '', duration = 0;
+
+function setQ(el, key) {
+  document.querySelectorAll('.q-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  quality = key;
+}
+
+const zone = document.getElementById('zone');
+zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('over'); });
+zone.addEventListener('dragleave', () => zone.classList.remove('over'));
+zone.addEventListener('drop', e => {
+  e.preventDefault(); zone.classList.remove('over');
+  const f = e.dataTransfer.files[0];
+  if (f && f.type.startsWith('video/')) load(f);
+  else toast('請選擇影片檔案', 'err');
+});
+document.getElementById('fi').addEventListener('change', e => { if (e.target.files[0]) load(e.target.files[0]); });
+
+function load(f) {
+  file = f; blob = null;
+  const url = URL.createObjectURL(f);
+  const v = document.getElementById('thumb');
+  v.src = url;
+  v.onloadedmetadata = () => {
+    duration = v.duration;
+    document.getElementById('fres').textContent = `${v.videoWidth}×${v.videoHeight}`;
+    document.getElementById('fdur').textContent = fmt(v.duration);
+  };
+  document.getElementById('fname').textContent = f.name;
+  document.getElementById('fsize').textContent = mb(f.size);
+  document.getElementById('fileInfo').classList.add('show');
+  document.getElementById('zone').style.display = 'none';
+  document.getElementById('result').classList.remove('show');
+  document.getElementById('prog').classList.remove('show');
+  const btn = document.getElementById('compBtn');
+  btn.disabled = false;
+  btn.textContent = '⚡ 開始壓縮';
+}
+
+async function loadFF() {
+  const { FFmpeg } = FFmpegWASM;
+  ffmpeg = new FFmpeg();
+  ffmpeg.on('log', ({ message }) => {
+    const m = message.match(/time=(\d+):(\d+):([\d.]+)/);
+    if (m && duration > 0) {
+      const s = +m[1]*3600 + +m[2]*60 + parseFloat(m[3]);
+      setPct(Math.min(Math.round(s/duration*94)+4, 99), '壓縮中...');
+    }
+    document.getElementById('plog').textContent = message;
+  });
+  await ffmpeg.load({
+    coreURL: 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm/ffmpeg-core.js',
+    wasmURL:  'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm/ffmpeg-core.wasm',
+  });
+}
+
+async function compress() {
+  if (!file) return;
+  const btn = document.getElementById('compBtn');
+  btn.disabled = true; btn.textContent = '⏳ 處理中...';
+  document.getElementById('prog').classList.add('show');
+  document.getElementById('result').classList.remove('show');
+  setPct(0, '載入 FFmpeg...');
+  try {
+    if (!ffmpeg) await loadFF();
+    setPct(2, '讀取影片...');
+    const { fetchFile } = FFmpegWASM;
+    const ext = file.name.substring(file.name.lastIndexOf('.'));
+    const inp = 'in' + ext;
+    await ffmpeg.writeFile(inp, await fetchFile(file));
+    const q = Q[quality];
+    const args = ['-i', inp];
+    if (q.scale !== 'original') {
+      const [w, h] = q.scale.split('x');
+      args.push('-vf', `scale=${w}:${h}:force_original_aspect_ratio=decrease,pad=${w}:${h}:(ow-iw)/2:(oh-ih)/2`);
+    }
+    args.push('-c:v','libx264','-preset','medium','-crf',String(q.crf),'-maxrate',q.maxrate,'-bufsize',`${parseInt(q.maxrate)*2}k`,'-c:a','aac','-b:a','128k','-movflags','+faststart','-y','out.mp4');
+    setPct(4, '壓縮中...');
+    await ffmpeg.exec(args);
+    setPct(99, '完成輸出...');
+    const data = await ffmpeg.readFile('out.mp4');
+    blob = new Blob([data.buffer], { type: 'video/mp4' });
+    await ffmpeg.deleteFile(inp);
+    await ffmpeg.deleteFile('out.mp4');
+    outName = file.name.replace(/\.[^.]+$/, '') + '_compressed.mp4';
+    setPct(100, '完成！');
+    showResult();
+  } catch (e) {
+    toast('壓縮失敗：' + e.message, 'err');
+    document.getElementById('prog').classList.remove('show');
+    btn.disabled = false; btn.textContent = '⚡ 重新壓縮';
+  }
+}
+
+function showResult() {
+  document.getElementById('prog').classList.remove('show');
+  document.getElementById('rOrig').textContent = mb(file.size);
+  document.getElementById('rNew').textContent = mb(blob.size);
+  const s = Math.round((1 - blob.size/file.size)*100);
+  document.getElementById('rSave').textContent = (s>0?'↓':'↑') + Math.abs(s) + '%';
+  document.getElementById('result').classList.add('show');
+  const btn = document.getElementById('compBtn');
+  btn.disabled = false; btn.textContent = '⚡ 重新壓縮';
+  toast('壓縮完成！', 'ok');
+}
+
+function dl() {
+  if (!blob) return;
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = outName; a.click();
+}
+
+function reset() {
+  file = null; blob = null; duration = 0;
+  document.getElementById('fileInfo').classList.remove('show');
+  document.getElementById('zone').style.display = '';
+  document.getElementById('prog').classList.remove('show');
+  document.getElementById('result').classList.remove('show');
+  document.getElementById('compBtn').disabled = true;
+  document.getElementById('compBtn').textContent = '選擇影片後開始壓縮';
+  document.getElementById('fi').value = '';
+  document.getElementById('thumb').src = '';
+}
+
+function setPct(p, label) {
+  document.getElementById('fill').style.width = p + '%';
+  document.getElementById('progPct').textContent = p + '%';
+  document.getElementById('progLabel').textContent = label;
+}
+function mb(b) { return b<1048576 ? (b/1024).toFixed(0)+' KB' : (b/1048576).toFixed(2)+' MB'; }
+function fmt(s) {
+  const h=Math.floor(s/3600), m=Math.floor((s%3600)/60), sc=Math.floor(s%60);
+  return h ? `${h}:${pad(m)}:${pad(sc)}` : `${m}:${pad(sc)}`;
+}
+function pad(n) { return String(n).padStart(2,'0'); }
+function toast(msg, type='info') {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = `toast ${type} show`;
+  setTimeout(() => { t.className = 'toast'; }, 3000);
+}
+</script>
+</body>
+</html>
