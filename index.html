@@ -134,6 +134,7 @@
     .toast.info { background: var(--accent); }
 
     .privacy { margin-top: 24px; font-size: 0.75rem; color: var(--muted); text-align: center; }
+    .version { margin-top: 8px; font-size: 0.72rem; color: var(--border); text-align: center; letter-spacing: 0.03em; }
   </style>
 </head>
 <body>
@@ -209,10 +210,11 @@
 </div>
 
 <p class="privacy">🔒 所有處理均在您的瀏覽器本機執行，影片不會上傳至任何伺服器</p>
+<p class="version">v1.0.0 &nbsp;·&nbsp; 更新時間：2026-07-01 23:44</p>
 
 <div class="toast" id="toast"></div>
 
-<script src="https://unpkg.com/@ffmpeg/ffmpeg@0.12.6/dist/umd/ffmpeg.js"></script>
+<script src="https://unpkg.com/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js"></script>
 <script>
 const Q = {
   high:     { crf: 20, maxrate: '5000k', scale: 'original' },
@@ -260,20 +262,15 @@ function load(f) {
 }
 
 async function loadFF() {
-  const { FFmpeg } = FFmpegWASM;
-  ffmpeg = new FFmpeg();
-  ffmpeg.on('log', ({ message }) => {
-    const m = message.match(/time=(\d+):(\d+):([\d.]+)/);
-    if (m && duration > 0) {
-      const s = +m[1]*3600 + +m[2]*60 + parseFloat(m[3]);
-      setPct(Math.min(Math.round(s/duration*94)+4, 99), '壓縮中...');
-    }
-    document.getElementById('plog').textContent = message;
+  const { createFFmpeg } = FFmpeg;
+  ffmpeg = createFFmpeg({
+    log: false,
+    progress: ({ ratio }) => {
+      if (ratio > 0) setPct(Math.min(Math.round(ratio * 94) + 4, 99), '壓縮中...');
+    },
   });
-  await ffmpeg.load({
-    coreURL: 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm/ffmpeg-core.js',
-    wasmURL:  'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm/ffmpeg-core.wasm',
-  });
+  setPct(5, '下載 FFmpeg 核心（首次約需 30 秒）...');
+  await ffmpeg.load();
 }
 
 async function compress() {
@@ -284,12 +281,12 @@ async function compress() {
   document.getElementById('result').classList.remove('show');
   setPct(0, '載入 FFmpeg...');
   try {
-    if (!ffmpeg) await loadFF();
-    setPct(2, '讀取影片...');
-    const { fetchFile } = FFmpegWASM;
+    if (!ffmpeg || !ffmpeg.isLoaded()) await loadFF();
+    setPct(3, '讀取影片...');
+    const { fetchFile } = FFmpeg;
     const ext = file.name.substring(file.name.lastIndexOf('.'));
     const inp = 'in' + ext;
-    await ffmpeg.writeFile(inp, await fetchFile(file));
+    ffmpeg.FS('writeFile', inp, await fetchFile(file));
     const q = Q[quality];
     const args = ['-i', inp];
     if (q.scale !== 'original') {
@@ -298,12 +295,12 @@ async function compress() {
     }
     args.push('-c:v','libx264','-preset','medium','-crf',String(q.crf),'-maxrate',q.maxrate,'-bufsize',`${parseInt(q.maxrate)*2}k`,'-c:a','aac','-b:a','128k','-movflags','+faststart','-y','out.mp4');
     setPct(4, '壓縮中...');
-    await ffmpeg.exec(args);
+    await ffmpeg.run(...args);
     setPct(99, '完成輸出...');
-    const data = await ffmpeg.readFile('out.mp4');
+    const data = ffmpeg.FS('readFile', 'out.mp4');
     blob = new Blob([data.buffer], { type: 'video/mp4' });
-    await ffmpeg.deleteFile(inp);
-    await ffmpeg.deleteFile('out.mp4');
+    ffmpeg.FS('unlink', inp);
+    ffmpeg.FS('unlink', 'out.mp4');
     outName = file.name.replace(/\.[^.]+$/, '') + '_compressed.mp4';
     setPct(100, '完成！');
     showResult();
