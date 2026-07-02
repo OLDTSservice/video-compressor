@@ -124,6 +124,10 @@
     .toast.err { background: var(--red); }
     .toast.info { background: var(--accent); }
 
+    .btn-cancel { display: none; width: 100%; margin-top: 10px; padding: 8px; border-radius: 9px; border: 1px solid var(--red); background: rgba(239,68,68,.12); color: var(--red); font-size: .82rem; font-weight: 700; cursor: pointer; transition: background .18s; }
+    .btn-cancel:hover { background: rgba(239,68,68,.25); }
+    .btn-cancel.show { display: block; }
+
     .fnote { margin-top: 24px; text-align: center; }
     .privacy { font-size: .73rem; color: var(--muted); }
     .version { font-size: .68rem; color: var(--muted); margin-top: 4px; letter-spacing: .03em; }
@@ -178,6 +182,7 @@
       <div class="prog-top"><span id="cProgLabel">載入中...</span><span id="cProgPct">0%</span></div>
       <div class="bar-bg"><div class="bar-fill" id="cFill"></div></div>
       <div class="prog-log" id="cLog"></div>
+      <button class="btn-cancel" id="cCancelBtn" onclick="cancelCompress()">✕ 取消壓縮</button>
     </div>
 
     <div class="reswrap" id="cResWrap">
@@ -246,6 +251,7 @@
       <div class="prog-top"><span id="tProgLabel">處理中...</span><span id="tProgPct">0%</span></div>
       <div class="bar-bg"><div class="bar-fill bar-orange" id="tFill"></div></div>
       <div class="prog-log" id="tLog"></div>
+      <button class="btn-cancel" id="tCancelBtn" onclick="cancelTrim()">✕ 取消裁剪</button>
     </div>
 
     <div class="reswrap" id="tResWrap">
@@ -271,41 +277,38 @@
 <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js"></script>
 <script>
 (function () {
-  // ── 共用 FFmpeg 實例 ────────────────────────────────────────────────────
-  let ffmpeg = null;
-  let _fillId = null, _pctId = null, _logId = null;
-
-  function setFFTarget(fillId, pctId, logId) {
-    _fillId = fillId; _pctId = pctId; _logId = logId;
-  }
-
-  async function ensureFF(fillId, pctId, logId, labelId) {
-    setFFTarget(fillId, pctId, logId);
-    if (ffmpeg && ffmpeg.isLoaded()) return;
+  // ── 各自獨立的 FFmpeg 實例（壓縮 / 裁剪可同時執行）────────────────────
+  function makeFF(fillId, pctId, logId) {
     const { createFFmpeg } = FFmpeg;
-    ffmpeg = createFFmpeg({
+    const inst = createFFmpeg({
       log: true,
       progress: ({ ratio }) => {
-        if (ratio > 0 && _fillId) {
+        if (ratio > 0) {
           const p = Math.min(Math.round(ratio * 94) + 4, 99);
-          setProg(_fillId, _pctId, p);
+          setProg(fillId, pctId, p);
         }
       },
       logger: ({ message }) => {
-        if (_logId) {
-          const el = document.getElementById(_logId);
-          if (el) el.textContent = message;
-        }
+        const el = document.getElementById(logId);
+        if (el) el.textContent = message;
       },
     });
+    return inst;
+  }
+
+  async function ensureFF(inst, fillId, pctId, labelId) {
+    if (inst.isLoaded()) return;
     document.getElementById(labelId).textContent = '下載 FFmpeg 核心（首次約需 30 秒）...';
     setProg(fillId, pctId, 3);
-    await ffmpeg.load();
+    await inst.load();
   }
 
   // ════════════════════════════════════════════════════════════════════════
   // 壓縮工具
   // ════════════════════════════════════════════════════════════════════════
+  let ffmpegC = makeFF('cFill', 'cProgPct', 'cLog');
+  let cCancelled = false;
+
   const QUALITY = {
     high:     { crf: 20, scale: 'original' },
     balanced: { crf: 26, scale: '1280x720' },
@@ -349,17 +352,20 @@
   window.compress = async () => {
     if (!cFile) return;
     const btn = document.getElementById('cBtn');
+    cCancelled = false;
     btn.disabled = true; btn.textContent = '⏳ 處理中...';
     addClass('cProg', 'show'); removeClass('cResWrap', 'show');
+    addClass('cCancelBtn', 'show');
     setProg('cFill', 'cProgPct', 0);
     document.getElementById('cProgLabel').textContent = '載入 FFmpeg...';
     try {
-      await ensureFF('cFill', 'cProgPct', 'cLog', 'cProgLabel');
+      await ensureFF(ffmpegC, 'cFill', 'cProgPct', 'cProgLabel');
+      if (cCancelled) return;
       document.getElementById('cProgLabel').textContent = '讀取影片...';
       const { fetchFile } = FFmpeg;
       const ext = cFile.name.substring(cFile.name.lastIndexOf('.'));
       const inp = 'c_in' + ext;
-      ffmpeg.FS('writeFile', inp, await fetchFile(cFile));
+      ffmpegC.FS('writeFile', inp, await fetchFile(cFile));
       const q = QUALITY[cQuality];
       const args = ['-i', inp];
       if (q.scale !== 'original') {
@@ -368,15 +374,18 @@
       }
       args.push('-c:v', 'libx264', '-preset', 'fast', '-crf', String(q.crf), '-c:a', 'aac', '-b:a', '128k', '-movflags', '+faststart', '-y', 'c_out.mp4');
       document.getElementById('cProgLabel').textContent = '壓縮中...';
-      await ffmpeg.run(...args);
+      await ffmpegC.run(...args);
+      if (cCancelled) return;
       setProg('cFill', 'cProgPct', 99);
-      const data = ffmpeg.FS('readFile', 'c_out.mp4');
+      const data = ffmpegC.FS('readFile', 'c_out.mp4');
       cBlob = new Blob([data.buffer], { type: 'video/mp4' });
-      tryUnlink('c_in' + ext); tryUnlink('c_out.mp4');
+      try { ffmpegC.FS('unlink', inp); } catch (_) {}
+      try { ffmpegC.FS('unlink', 'c_out.mp4'); } catch (_) {}
       cOutName = cFile.name.replace(/\.[^.]+$/, '') + '_compressed.mp4';
       setProg('cFill', 'cProgPct', 100);
       document.getElementById('cProgLabel').textContent = '完成！';
       removeClass('cProg', 'show');
+      removeClass('cCancelBtn', 'show');
       document.getElementById('cROrig').textContent = fmtMB(cFile.size);
       document.getElementById('cRNew').textContent  = fmtMB(cBlob.size);
       const s = Math.round((1 - cBlob.size / cFile.size) * 100);
@@ -385,11 +394,24 @@
       btn.disabled = false; btn.textContent = '⚡ 重新壓縮';
       toast('壓縮完成！', 'ok');
     } catch (e) {
+      if (cCancelled) return;
       document.getElementById('cLog').textContent = '錯誤：' + (e.message || e);
       toast('壓縮失敗，請查看錯誤訊息', 'err');
       removeClass('cProg', 'show');
+      removeClass('cCancelBtn', 'show');
       btn.disabled = false; btn.textContent = '⚡ 重新壓縮';
     }
+  };
+
+  window.cancelCompress = () => {
+    cCancelled = true;
+    try { ffmpegC.exit(); } catch (_) {}
+    ffmpegC = makeFF('cFill', 'cProgPct', 'cLog');
+    const btn = document.getElementById('cBtn');
+    btn.disabled = false; btn.textContent = '⚡ 重新壓縮';
+    removeClass('cProg', 'show');
+    removeClass('cCancelBtn', 'show');
+    toast('已取消壓縮', 'info');
   };
 
   window.cDl = () => dlBlob(cBlob, cOutName);
@@ -407,6 +429,8 @@
   // ════════════════════════════════════════════════════════════════════════
   // 裁剪工具
   // ════════════════════════════════════════════════════════════════════════
+  let ffmpegT = makeFF('tFill', 'tProgPct', 'tLog');
+  let tCancelled = false;
   let tFile = null, tBlob = null, tOutName = '', tDur = 0;
   const tVideo = document.getElementById('tVideo');
 
@@ -472,31 +496,52 @@
     if (endSec <= startSec) { toast('結束時間必須大於開始時間', 'err'); return; }
     if (endSec > tDur + 0.5) { toast('結束時間超過影片長度', 'err'); return; }
 
+    tCancelled = false;
     const btn = document.getElementById('tBtn');
     btn.disabled = true; btn.textContent = '⏳ 裁剪中...';
     addClass('tProg', 'show'); removeClass('tResWrap', 'show');
+    addClass('tCancelBtn', 'show');
     setProg('tFill', 'tProgPct', 0);
     document.getElementById('tProgLabel').textContent = '載入 FFmpeg...';
     try {
-      await ensureFF('tFill', 'tProgPct', 'tLog', 'tProgLabel');
+      await ensureFF(ffmpegT, 'tFill', 'tProgPct', 'tProgLabel');
+      if (tCancelled) return;
       document.getElementById('tProgLabel').textContent = '讀取影片...';
-      const { fetchFile } = FFmpeg;
-      const ext = tFile.name.substring(tFile.name.lastIndexOf('.'));
-      const inp = 't_in' + ext;
-      ffmpeg.FS('writeFile', inp, await fetchFile(tFile));
+
+      const arrayBuf = await tFile.arrayBuffer();
+      const uint8 = new Uint8Array(arrayBuf);
+      const inp = 't_in.mp4';
+      ffmpegT.FS('writeFile', inp, uint8);
       setProg('tFill', 'tProgPct', 20);
+
       document.getElementById('tProgLabel').textContent = '裁剪中...';
-      await ffmpeg.run('-ss', String(startSec), '-i', inp, '-t', String(endSec - startSec), '-c:v', 'libx264', '-preset', 'fast', '-crf', '18', '-c:a', 'aac', '-b:a', '128k', '-movflags', '+faststart', '-y', 't_out.mp4');
+      const trimArgs = [
+        '-ss', startSec.toFixed(3),
+        '-i', inp,
+        '-t',  (endSec - startSec).toFixed(3),
+        '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '18',
+        '-c:a', 'aac', '-b:a', '128k',
+        '-avoid_negative_ts', 'make_zero',
+        '-movflags', '+faststart',
+        '-y', 't_out.mp4'
+      ];
+      console.log('[Trim] ffmpeg args:', trimArgs.join(' '));
+      await ffmpegT.run(...trimArgs);
+      if (tCancelled) return;
+
       setProg('tFill', 'tProgPct', 95);
-      const data = ffmpeg.FS('readFile', 't_out.mp4');
+      const data = ffmpegT.FS('readFile', 't_out.mp4');
       tBlob = new Blob([data.buffer], { type: 'video/mp4' });
-      tryUnlink('t_in' + ext); tryUnlink('t_out.mp4');
+      try { ffmpegT.FS('unlink', inp); } catch (_) {}
+      try { ffmpegT.FS('unlink', 't_out.mp4'); } catch (_) {}
+
       const sv = document.getElementById('tStart').value.replace(/:/g, '');
       const ev = document.getElementById('tEnd').value.replace(/:/g, '');
       tOutName = tFile.name.replace(/\.[^.]+$/, '') + `_trim_${sv}-${ev}.mp4`;
       setProg('tFill', 'tProgPct', 100);
       document.getElementById('tProgLabel').textContent = '完成！';
       removeClass('tProg', 'show');
+      removeClass('tCancelBtn', 'show');
       document.getElementById('tRDur').textContent  = fmtTime(endSec - startSec);
       document.getElementById('tRSize').textContent = fmtMB(tBlob.size);
       document.getElementById('tROrig').textContent = fmtTime(tDur);
@@ -504,11 +549,26 @@
       btn.disabled = false; btn.textContent = '✂️ 重新裁剪';
       toast('裁剪完成！', 'ok');
     } catch (e) {
-      document.getElementById('tLog').textContent = '錯誤：' + (e.message || e);
+      if (tCancelled) return;
+      const msg = (e.message || String(e));
+      console.error('[Trim] 失敗:', e);
+      document.getElementById('tLog').textContent = '錯誤：' + msg;
       toast('裁剪失敗，請查看錯誤訊息', 'err');
       removeClass('tProg', 'show');
+      removeClass('tCancelBtn', 'show');
       btn.disabled = false; btn.textContent = '✂️ 重新裁剪';
     }
+  };
+
+  window.cancelTrim = () => {
+    tCancelled = true;
+    try { ffmpegT.exit(); } catch (_) {}
+    ffmpegT = makeFF('tFill', 'tProgPct', 'tLog');
+    const btn = document.getElementById('tBtn');
+    btn.disabled = false; btn.textContent = '✂️ 重新裁剪';
+    removeClass('tProg', 'show');
+    removeClass('tCancelBtn', 'show');
+    toast('已取消裁剪', 'info');
   };
 
   window.tDl = () => dlBlob(tBlob, tOutName);
@@ -555,7 +615,7 @@
   function hide(id) { document.getElementById(id).style.display = 'none'; }
   function addClass(id, cls) { document.getElementById(id).classList.add(cls); }
   function removeClass(id, cls) { document.getElementById(id).classList.remove(cls); }
-  function tryUnlink(name) { try { ffmpeg.FS('unlink', name); } catch (_) {} }
+
   function dlBlob(blob, name) {
     if (!blob) return;
     const a = document.createElement('a');
