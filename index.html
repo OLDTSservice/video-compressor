@@ -3,381 +3,571 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>影片壓縮工具</title>
+  <title>影片工具箱</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
-      --bg: #0f1117;
-      --card: #1a1d2e;
-      --card2: #232640;
-      --accent: #7c6af7;
-      --accent2: #4ecdc4;
-      --text: #e2e0f0;
-      --muted: #8b89a8;
-      --border: #2e2c46;
-      --green: #22c55e;
-      --red: #ef4444;
-      --r: 14px;
+      --bg: #0f1117; --card: #1a1d2e; --card2: #232640;
+      --accent: #7c6af7; --accent2: #4ecdc4;
+      --orange: #f59e0b; --orange2: #fb923c;
+      --text: #e2e0f0; --muted: #8b89a8; --border: #2e2c46;
+      --green: #22c55e; --red: #ef4444; --r: 14px;
     }
-    body {
-      font-family: 'Segoe UI', system-ui, sans-serif;
-      background: var(--bg);
-      color: var(--text);
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 48px 16px;
-    }
+    body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 40px 16px; }
 
-    .header { text-align: center; margin-bottom: 40px; }
-    .header h1 { font-size: 1.9rem; font-weight: 800; letter-spacing: -0.5px; }
-    .header h1 span { background: linear-gradient(135deg, var(--accent), var(--accent2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-    .header p { color: var(--muted); font-size: 0.9rem; margin-top: 8px; }
+    .header { text-align: center; margin-bottom: 36px; }
+    .header h1 { font-size: 1.8rem; font-weight: 800; letter-spacing: -0.5px; }
+    .g1 { background: linear-gradient(135deg, var(--accent), var(--accent2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .g2 { background: linear-gradient(135deg, var(--orange), var(--orange2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .header p { color: var(--muted); font-size: 0.88rem; margin-top: 8px; }
 
-    .card {
-      width: 100%; max-width: 540px;
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: var(--r);
-      padding: 32px;
-    }
+    .tools { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; width: 100%; max-width: 1080px; align-items: start; }
+    @media (max-width: 820px) { .tools { grid-template-columns: 1fr; } }
+
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--r); padding: 28px; }
+    .card-head { display: flex; align-items: center; gap: 10px; margin-bottom: 22px; padding-bottom: 16px; border-bottom: 1px solid var(--border); }
+    .card-head .ico { font-size: 1.5rem; }
+    .card-head h2 { font-size: 1rem; font-weight: 700; }
+    .card-head p { font-size: 0.73rem; color: var(--muted); margin-top: 2px; }
 
     /* Upload zone */
-    .upload-zone {
-      border: 2px dashed var(--border);
-      border-radius: 12px;
-      padding: 44px 20px;
-      text-align: center;
-      cursor: pointer;
-      transition: all 0.2s;
-      margin-bottom: 24px;
-    }
+    .upload-zone { border: 2px dashed var(--border); border-radius: 12px; padding: 34px 16px; text-align: center; cursor: pointer; transition: all 0.2s; margin-bottom: 20px; }
     .upload-zone:hover, .upload-zone.over { border-color: var(--accent); background: rgba(124,106,247,.07); }
+    .upload-zone.t:hover, .upload-zone.t.over { border-color: var(--orange); background: rgba(245,158,11,.06); }
     .upload-zone input { display: none; }
-    .upload-icon { font-size: 2.8rem; margin-bottom: 12px; }
-    .upload-zone h2 { font-size: 1rem; font-weight: 600; margin-bottom: 6px; }
-    .upload-zone h2 span { color: var(--accent); }
-    .upload-zone p { color: var(--muted); font-size: 0.8rem; }
+    .uico { font-size: 2.2rem; margin-bottom: 10px; }
+    .upload-zone h3 { font-size: 0.9rem; font-weight: 600; margin-bottom: 4px; }
+    .upload-zone h3 .hl { color: var(--accent); }
+    .upload-zone h3 .hl2 { color: var(--orange); }
+    .upload-zone small { color: var(--muted); font-size: 0.73rem; }
 
-    /* File info */
-    .file-info { display: none; background: var(--card2); border-radius: 10px; padding: 16px; margin-bottom: 24px; gap: 14px; align-items: center; }
-    .file-info.show { display: flex; }
-    .file-thumb { width: 80px; height: 56px; border-radius: 6px; background: #000; overflow: hidden; flex-shrink: 0; }
-    .file-thumb video { width: 100%; height: 100%; object-fit: cover; }
-    .file-details { flex: 1; min-width: 0; }
-    .file-details .name { font-size: 0.85rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 6px; }
-    .file-chips { display: flex; flex-wrap: wrap; gap: 6px; }
-    .chip { background: var(--card); border: 1px solid var(--border); border-radius: 6px; padding: 3px 8px; font-size: 0.72rem; color: var(--muted); }
+    /* File info bar */
+    .finfo { display: none; background: var(--card2); border-radius: 10px; padding: 12px 14px; margin-bottom: 18px; gap: 10px; align-items: center; }
+    .finfo.show { display: flex; }
+    .fthumb { width: 64px; height: 44px; border-radius: 6px; background: #000; overflow: hidden; flex-shrink: 0; }
+    .fthumb video { width: 100%; height: 100%; object-fit: cover; }
+    .fdet { flex: 1; min-width: 0; }
+    .fname { font-size: 0.8rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 5px; }
+    .chips { display: flex; flex-wrap: wrap; gap: 5px; }
+    .chip { background: var(--card); border: 1px solid var(--border); border-radius: 5px; padding: 2px 7px; font-size: 0.68rem; color: var(--muted); }
     .chip b { color: var(--text); }
-    .btn-change { background: none; border: 1px solid var(--border); border-radius: 6px; padding: 5px 10px; font-size: 0.75rem; color: var(--muted); cursor: pointer; flex-shrink: 0; }
-    .btn-change:hover { color: var(--text); border-color: var(--muted); }
+    .btn-chg { background: none; border: 1px solid var(--border); border-radius: 6px; padding: 4px 9px; font-size: 0.7rem; color: var(--muted); cursor: pointer; flex-shrink: 0; }
+    .btn-chg:hover { color: var(--text); }
 
-    /* Quality */
-    .section-label { font-size: 0.78rem; color: var(--muted); font-weight: 500; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 10px; }
-    .quality-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 24px; }
-    .q-btn { padding: 12px 8px; border-radius: 10px; border: 1.5px solid var(--border); background: var(--card2); color: var(--text); cursor: pointer; text-align: center; transition: all 0.18s; }
-    .q-btn:hover { border-color: var(--accent); }
-    .q-btn.active { border-color: var(--accent); background: rgba(124,106,247,.15); }
-    .q-btn .q-label { font-size: 0.88rem; font-weight: 700; margin-bottom: 3px; }
-    .q-btn .q-desc { font-size: 0.72rem; color: var(--muted); line-height: 1.3; }
-    .q-btn.active .q-desc { color: var(--accent2); }
+    .slabel { font-size: 0.73rem; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 9px; }
 
-    /* Compress btn */
-    .btn-compress {
-      width: 100%; padding: 15px; border-radius: 12px; border: none;
-      font-size: 1rem; font-weight: 700; cursor: pointer; color: #fff;
-      background: linear-gradient(135deg, var(--accent), #9a6cf0);
-      transition: opacity .2s, transform .1s;
-      display: flex; align-items: center; justify-content: center; gap: 8px;
-    }
-    .btn-compress:hover:not(:disabled) { opacity: .88; transform: translateY(-1px); }
-    .btn-compress:disabled { opacity: .35; cursor: not-allowed; transform: none; }
+    /* Quality buttons */
+    .qgrid { display: grid; grid-template-columns: repeat(3,1fr); gap: 7px; margin-bottom: 20px; }
+    .qbtn { padding: 10px 6px; border-radius: 9px; border: 1.5px solid var(--border); background: var(--card2); color: var(--text); cursor: pointer; text-align: center; transition: all .18s; }
+    .qbtn:hover { border-color: var(--accent); }
+    .qbtn.active { border-color: var(--accent); background: rgba(124,106,247,.15); }
+    .ql { font-size: 0.82rem; font-weight: 700; margin-bottom: 2px; }
+    .qd { font-size: 0.67rem; color: var(--muted); line-height: 1.3; }
+    .qbtn.active .qd { color: var(--accent2); }
+
+    /* Action button */
+    .btn-act { width: 100%; padding: 13px; border-radius: 12px; border: none; font-size: .93rem; font-weight: 700; cursor: pointer; color: #fff; transition: opacity .2s, transform .1s; display: flex; align-items: center; justify-content: center; gap: 8px; }
+    .btn-act:hover:not(:disabled) { opacity: .88; transform: translateY(-1px); }
+    .btn-act:disabled { opacity: .35; cursor: not-allowed; transform: none; }
+    .btn-purple { background: linear-gradient(135deg, var(--accent), #9a6cf0); }
+    .btn-orange { background: linear-gradient(135deg, var(--orange), var(--orange2)); }
 
     /* Progress */
-    .progress-wrap { display: none; margin-top: 24px; }
-    .progress-wrap.show { display: block; }
-    .progress-top { display: flex; justify-content: space-between; font-size: .82rem; color: var(--muted); margin-bottom: 8px; }
-    .progress-top span:last-child { color: var(--accent2); font-weight: 700; }
-    .bar-bg { height: 6px; background: var(--card2); border-radius: 99px; overflow: hidden; }
+    .prog { display: none; margin-top: 18px; }
+    .prog.show { display: block; }
+    .prog-top { display: flex; justify-content: space-between; font-size: .78rem; color: var(--muted); margin-bottom: 7px; }
+    .prog-top span:last-child { color: var(--accent2); font-weight: 700; }
+    .bar-bg { height: 5px; background: var(--card2); border-radius: 99px; overflow: hidden; }
     .bar-fill { height: 100%; border-radius: 99px; background: linear-gradient(90deg, var(--accent), var(--accent2)); transition: width .3s; width: 0; }
-    .progress-log { font-size: .72rem; color: var(--muted); font-family: monospace; margin-top: 6px; height: 16px; overflow: hidden; }
+    .bar-orange { background: linear-gradient(90deg, var(--orange), var(--orange2)) !important; }
+    .prog-log { font-size: .67rem; color: var(--muted); font-family: monospace; margin-top: 5px; height: 14px; overflow: hidden; }
 
     /* Result */
-    .result-wrap { display: none; margin-top: 24px; }
-    .result-wrap.show { display: block; }
-    .result-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 16px; }
-    .stat { background: var(--card2); border-radius: 10px; padding: 14px 10px; text-align: center; }
-    .stat .v { font-size: 1.1rem; font-weight: 800; color: var(--accent2); }
-    .stat .l { font-size: 0.7rem; color: var(--muted); margin-top: 3px; }
-    .stat-save .v { color: var(--green); }
-    .btn-dl {
-      width: 100%; padding: 13px; border-radius: 12px; border: none;
-      font-size: .95rem; font-weight: 700; cursor: pointer; color: #fff;
-      background: linear-gradient(135deg, var(--green), #16a34a);
-      transition: opacity .2s; margin-bottom: 8px;
-      display: flex; align-items: center; justify-content: center; gap: 8px;
-    }
+    .reswrap { display: none; margin-top: 18px; }
+    .reswrap.show { display: block; }
+    .stats { display: grid; grid-template-columns: repeat(3,1fr); gap: 7px; margin-bottom: 13px; }
+    .stat { background: var(--card2); border-radius: 9px; padding: 11px 8px; text-align: center; }
+    .stat .v { font-size: .98rem; font-weight: 800; color: var(--accent2); }
+    .stat .l { font-size: .66rem; color: var(--muted); margin-top: 2px; }
+    .stat-g .v { color: var(--green); }
+    .btn-dl { width: 100%; padding: 11px; border-radius: 11px; border: none; font-size: .88rem; font-weight: 700; cursor: pointer; color: #fff; background: linear-gradient(135deg,var(--green),#16a34a); transition: opacity .2s; margin-bottom: 7px; display: flex; align-items: center; justify-content: center; gap: 7px; }
     .btn-dl:hover { opacity: .88; }
-    .btn-new {
-      width: 100%; padding: 11px; border-radius: 10px;
-      border: 1px solid var(--border); background: none;
-      color: var(--muted); font-size: .85rem; cursor: pointer; transition: color .2s;
-    }
+    .btn-dl-orange { background: linear-gradient(135deg,var(--orange),var(--orange2)) !important; }
+    .btn-new { width: 100%; padding: 9px; border-radius: 9px; border: 1px solid var(--border); background: none; color: var(--muted); font-size: .8rem; cursor: pointer; transition: color .2s; }
     .btn-new:hover { color: var(--text); }
 
+    /* Trim: video player */
+    .tvid-wrap { display: none; margin-bottom: 16px; border-radius: 10px; overflow: hidden; background: #000; }
+    .tvid-wrap.show { display: block; }
+    .tvid-wrap video { width: 100%; max-height: 190px; object-fit: contain; display: block; }
+    .tvid-time { display: flex; justify-content: center; gap: 8px; padding: 6px 0 0; font-size: .75rem; color: var(--muted); background: var(--card2); border-radius: 0 0 10px 10px; }
+    .tvid-time b { color: var(--accent2); }
+
+    /* Trim time inputs */
+    .trim-inputs { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+    .tfield { background: var(--card2); border-radius: 10px; padding: 12px; }
+    .tfield-label { font-size: .69rem; color: var(--muted); margin-bottom: 7px; display: flex; justify-content: space-between; }
+    .tfield-label span { font-size: .66rem; color: var(--orange); }
+    .tfield input { width: 100%; background: var(--card); border: 1px solid var(--border); border-radius: 7px; padding: 8px 10px; color: var(--text); font-size: .9rem; font-family: monospace; letter-spacing: .04em; }
+    .tfield input:focus { outline: none; border-color: var(--orange); }
+
+    /* Range bar */
+    .range-wrap { margin-bottom: 18px; }
+    .range-bg { height: 6px; background: var(--card2); border-radius: 99px; position: relative; overflow: hidden; }
+    .range-fill { height: 100%; background: linear-gradient(90deg, var(--orange), var(--orange2)); border-radius: 99px; position: absolute; transition: left .15s, width .15s; }
+    .range-labels { display: flex; justify-content: space-between; font-size: .67rem; color: var(--muted); margin-top: 4px; }
+
     /* Toast */
-    .toast { position: fixed; bottom: 24px; right: 24px; padding: 11px 18px; border-radius: 10px; font-size: .85rem; font-weight: 600; color: #fff; opacity: 0; transform: translateY(8px); transition: all .25s; pointer-events: none; z-index: 99; }
+    .toast { position: fixed; bottom: 24px; right: 24px; padding: 11px 18px; border-radius: 10px; font-size: .83rem; font-weight: 600; color: #fff; opacity: 0; transform: translateY(8px); transition: all .25s; pointer-events: none; z-index: 99; }
     .toast.show { opacity: 1; transform: translateY(0); }
     .toast.ok { background: var(--green); }
     .toast.err { background: var(--red); }
     .toast.info { background: var(--accent); }
 
-    .privacy { margin-top: 24px; font-size: 0.75rem; color: var(--muted); text-align: center; }
-    .version { margin-top: 8px; font-size: 0.72rem; color: var(--border); text-align: center; letter-spacing: 0.03em; }
+    .fnote { margin-top: 24px; text-align: center; }
+    .privacy { font-size: .73rem; color: var(--muted); }
+    .version { font-size: .68rem; color: var(--muted); margin-top: 4px; letter-spacing: .03em; }
   </style>
 </head>
 <body>
 
 <div class="header">
-  <h1>🎬 <span>影片壓縮工具</span></h1>
-  <p>上傳影片，壓縮檔案大小並保留最佳畫質，輸出 MP4</p>
+  <h1>🎬 <span class="g1">影片壓縮</span> &nbsp;+&nbsp; <span class="g2">影片裁剪</span></h1>
+  <p>所有處理均在瀏覽器本機執行，影片不會上傳至任何伺服器</p>
 </div>
 
-<div class="card">
+<div class="tools">
 
-  <!-- Upload -->
-  <div class="upload-zone" id="zone" onclick="document.getElementById('fi').click()">
-    <input type="file" id="fi" accept="video/*" />
-    <div class="upload-icon">📤</div>
-    <h2>點擊或拖曳影片至此 <span>上傳</span></h2>
-    <p>支援 MP4、MOV、AVI、MKV、WebM 等格式</p>
+  <!-- ══ 壓縮工具 ══ -->
+  <div class="card">
+    <div class="card-head">
+      <div class="ico">🗜️</div>
+      <div><h2>影片壓縮</h2><p>縮小檔案大小，保留最佳畫質，輸出 MP4</p></div>
+    </div>
+
+    <div class="upload-zone" id="cZone" onclick="document.getElementById('cFi').click()">
+      <input type="file" id="cFi" accept="video/*" />
+      <div class="uico">📤</div>
+      <h3>點擊或拖曳影片 <span class="hl">上傳</span></h3>
+      <small>支援 MP4、MOV、AVI、MKV、WebM</small>
+    </div>
+
+    <div class="finfo" id="cInfo">
+      <div class="fthumb"><video id="cThumb" muted></video></div>
+      <div class="fdet">
+        <div class="fname" id="cFname"></div>
+        <div class="chips">
+          <span class="chip">大小 <b id="cFsize"></b></span>
+          <span class="chip">解析度 <b id="cFres"></b></span>
+          <span class="chip">時長 <b id="cFdur"></b></span>
+        </div>
+      </div>
+      <button class="btn-chg" onclick="document.getElementById('cFi').click()">更換</button>
+    </div>
+
+    <div class="slabel">壓縮品質</div>
+    <div class="qgrid">
+      <div class="qbtn" onclick="setQ(this,'high')"><div class="ql">高畫質</div><div class="qd">輕度壓縮<br>保留細節</div></div>
+      <div class="qbtn active" onclick="setQ(this,'balanced')"><div class="ql">平衡 ✦</div><div class="qd">最佳比例<br>推薦選擇</div></div>
+      <div class="qbtn" onclick="setQ(this,'small')"><div class="ql">小檔案</div><div class="qd">最大壓縮<br>易於傳輸</div></div>
+    </div>
+
+    <button class="btn-act btn-purple" id="cBtn" disabled onclick="compress()">選擇影片後開始壓縮</button>
+
+    <div class="prog" id="cProg">
+      <div class="prog-top"><span id="cProgLabel">載入中...</span><span id="cProgPct">0%</span></div>
+      <div class="bar-bg"><div class="bar-fill" id="cFill"></div></div>
+      <div class="prog-log" id="cLog"></div>
+    </div>
+
+    <div class="reswrap" id="cResWrap">
+      <div class="stats">
+        <div class="stat"><div class="v" id="cROrig"></div><div class="l">原始大小</div></div>
+        <div class="stat"><div class="v" id="cRNew"></div><div class="l">壓縮後大小</div></div>
+        <div class="stat stat-g"><div class="v" id="cRSave"></div><div class="l">節省空間</div></div>
+      </div>
+      <button class="btn-dl" onclick="cDl()">⬇️ 下載壓縮後的 MP4</button>
+      <button class="btn-new" onclick="cReset()">重新上傳新影片</button>
+    </div>
   </div>
 
-  <!-- File info -->
-  <div class="file-info" id="fileInfo">
-    <div class="file-thumb"><video id="thumb" muted></video></div>
-    <div class="file-details">
-      <div class="name" id="fname">—</div>
-      <div class="file-chips">
-        <span class="chip">大小 <b id="fsize">—</b></span>
-        <span class="chip">解析度 <b id="fres">—</b></span>
-        <span class="chip">時長 <b id="fdur">—</b></span>
+  <!-- ══ 裁剪工具 ══ -->
+  <div class="card">
+    <div class="card-head">
+      <div class="ico">✂️</div>
+      <div><h2>影片裁剪</h2><p>選擇時間區間，裁剪片段並下載 MP4</p></div>
+    </div>
+
+    <div class="upload-zone t" id="tZone" onclick="document.getElementById('tFi').click()">
+      <input type="file" id="tFi" accept="video/*" />
+      <div class="uico">🎞️</div>
+      <h3>點擊或拖曳影片 <span class="hl2">上傳</span></h3>
+      <small>支援 MP4、MOV、AVI、MKV、WebM</small>
+    </div>
+
+    <div class="finfo" id="tInfo">
+      <div class="fdet">
+        <div class="fname" id="tFname"></div>
+        <div class="chips">
+          <span class="chip">大小 <b id="tFsize"></b></span>
+          <span class="chip">時長 <b id="tFdur"></b></span>
+        </div>
+      </div>
+      <button class="btn-chg" onclick="document.getElementById('tFi').click()">更換</button>
+    </div>
+
+    <!-- 影片預覽播放器 -->
+    <div class="tvid-wrap" id="tVidWrap">
+      <video id="tVideo" controls preload="metadata"></video>
+    </div>
+
+    <!-- 時間區間 -->
+    <div id="tControls" style="display:none">
+      <div class="slabel">裁剪區間</div>
+      <div class="trim-inputs">
+        <div class="tfield">
+          <div class="tfield-label">開始時間 <span>HH:MM:SS</span></div>
+          <input type="text" id="tStart" value="00:00:00" />
+        </div>
+        <div class="tfield">
+          <div class="tfield-label">結束時間 <span>HH:MM:SS</span></div>
+          <input type="text" id="tEnd" value="00:00:00" />
+        </div>
+      </div>
+      <div class="range-wrap">
+        <div class="range-bg"><div class="range-fill" id="tRangeFill" style="left:0%;width:100%"></div></div>
+        <div class="range-labels"><span id="tRangeL">0:00</span><span id="tRangeR">0:00</span></div>
       </div>
     </div>
-    <button class="btn-change" onclick="document.getElementById('fi').click()">更換</button>
+
+    <button class="btn-act btn-orange" id="tBtn" disabled onclick="trimVideo()">選擇影片後設定區間</button>
+
+    <div class="prog" id="tProg">
+      <div class="prog-top"><span id="tProgLabel">處理中...</span><span id="tProgPct">0%</span></div>
+      <div class="bar-bg"><div class="bar-fill bar-orange" id="tFill"></div></div>
+      <div class="prog-log" id="tLog"></div>
+    </div>
+
+    <div class="reswrap" id="tResWrap">
+      <div class="stats">
+        <div class="stat"><div class="v" id="tRDur"></div><div class="l">裁剪時長</div></div>
+        <div class="stat"><div class="v" id="tRSize"></div><div class="l">檔案大小</div></div>
+        <div class="stat"><div class="v" id="tROrig"></div><div class="l">原始時長</div></div>
+      </div>
+      <button class="btn-dl btn-dl-orange" onclick="tDl()">⬇️ 下載裁剪後的 MP4</button>
+      <button class="btn-new" onclick="tReset()">重新上傳新影片</button>
+    </div>
   </div>
 
-  <!-- Quality -->
-  <div class="section-label">壓縮品質</div>
-  <div class="quality-grid">
-    <div class="q-btn" onclick="setQ(this,'high')">
-      <div class="q-label">高畫質</div>
-      <div class="q-desc">輕度壓縮<br>保留細節</div>
-    </div>
-    <div class="q-btn active" onclick="setQ(this,'balanced')">
-      <div class="q-label">平衡 ✦</div>
-      <div class="q-desc">最佳比例<br>推薦選擇</div>
-    </div>
-    <div class="q-btn" onclick="setQ(this,'small')">
-      <div class="q-label">小檔案</div>
-      <div class="q-desc">最大壓縮<br>易於傳輸</div>
-    </div>
-  </div>
-
-  <!-- Compress -->
-  <button class="btn-compress" id="compBtn" disabled onclick="compress()">
-    選擇影片後開始壓縮
-  </button>
-
-  <!-- Progress -->
-  <div class="progress-wrap" id="prog">
-    <div class="progress-top"><span id="progLabel">載入中...</span><span id="progPct">0%</span></div>
-    <div class="bar-bg"><div class="bar-fill" id="fill"></div></div>
-    <div class="progress-log" id="plog"></div>
-  </div>
-
-  <!-- Result -->
-  <div class="result-wrap" id="result">
-    <div class="result-stats">
-      <div class="stat"><div class="v" id="rOrig">—</div><div class="l">原始大小</div></div>
-      <div class="stat"><div class="v" id="rNew">—</div><div class="l">壓縮後大小</div></div>
-      <div class="stat stat-save"><div class="v" id="rSave">—</div><div class="l">節省空間</div></div>
-    </div>
-    <button class="btn-dl" onclick="dl()">⬇️ 下載壓縮後的 MP4</button>
-    <button class="btn-new" onclick="reset()">重新上傳新影片</button>
-  </div>
 </div>
 
-<p class="privacy">🔒 所有處理均在您的瀏覽器本機執行，影片不會上傳至任何伺服器</p>
-<p class="version">v1.0.0 &nbsp;·&nbsp; 更新時間：__BUILD_TIME__</p>
+<div class="fnote">
+  <p class="privacy">🔒 所有處理均在您的瀏覽器本機執行，影片不會上傳至任何伺服器</p>
+  <p class="version">v1.1.0 &nbsp;·&nbsp; 更新時間：__BUILD_TIME__</p>
+</div>
 
 <div class="toast" id="toast"></div>
 
 <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js"></script>
 <script>
-const Q = {
-  high:     { crf: 20, maxrate: '5000k', scale: 'original' },
-  balanced: { crf: 26, maxrate: '2500k', scale: '1280x720' },
-  small:    { crf: 33, maxrate: '800k',  scale: '854x480'  },
-};
-let quality = 'balanced', ffmpeg = null, file = null, blob = null, outName = '', duration = 0;
+(function () {
+  // ── 共用 FFmpeg 實例 ────────────────────────────────────────────────────
+  let ffmpeg = null;
+  let _fillId = null, _pctId = null, _logId = null;
 
-function setQ(el, key) {
-  document.querySelectorAll('.q-btn').forEach(b => b.classList.remove('active'));
-  el.classList.add('active');
-  quality = key;
-}
-
-const zone = document.getElementById('zone');
-zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('over'); });
-zone.addEventListener('dragleave', () => zone.classList.remove('over'));
-zone.addEventListener('drop', e => {
-  e.preventDefault(); zone.classList.remove('over');
-  const f = e.dataTransfer.files[0];
-  if (f && f.type.startsWith('video/')) load(f);
-  else toast('請選擇影片檔案', 'err');
-});
-document.getElementById('fi').addEventListener('change', e => { if (e.target.files[0]) load(e.target.files[0]); });
-
-function load(f) {
-  file = f; blob = null;
-  const url = URL.createObjectURL(f);
-  const v = document.getElementById('thumb');
-  v.src = url;
-  v.onloadedmetadata = () => {
-    duration = v.duration;
-    document.getElementById('fres').textContent = `${v.videoWidth}×${v.videoHeight}`;
-    document.getElementById('fdur').textContent = fmt(v.duration);
-  };
-  document.getElementById('fname').textContent = f.name;
-  document.getElementById('fsize').textContent = mb(f.size);
-  document.getElementById('fileInfo').classList.add('show');
-  document.getElementById('zone').style.display = 'none';
-  document.getElementById('result').classList.remove('show');
-  document.getElementById('prog').classList.remove('show');
-  const btn = document.getElementById('compBtn');
-  btn.disabled = false;
-  btn.textContent = '⚡ 開始壓縮';
-}
-
-async function loadFF() {
-  const { createFFmpeg } = FFmpeg;
-  ffmpeg = createFFmpeg({
-    log: true,
-    progress: ({ ratio }) => {
-      if (ratio > 0) setPct(Math.min(Math.round(ratio * 94) + 4, 99), '壓縮中...');
-    },
-    logger: ({ message }) => {
-      document.getElementById('plog').textContent = message;
-    },
-  });
-  setPct(5, '下載 FFmpeg 核心（首次約需 30 秒）...');
-  await ffmpeg.load();
-}
-
-async function compress() {
-  if (!file) return;
-  const btn = document.getElementById('compBtn');
-  btn.disabled = true; btn.textContent = '⏳ 處理中...';
-  document.getElementById('prog').classList.add('show');
-  document.getElementById('result').classList.remove('show');
-  setPct(0, '載入 FFmpeg...');
-  try {
-    if (!ffmpeg || !ffmpeg.isLoaded()) await loadFF();
-    setPct(3, '讀取影片...');
-    const { fetchFile } = FFmpeg;
-    const ext = file.name.substring(file.name.lastIndexOf('.'));
-    const inp = 'in' + ext;
-    ffmpeg.FS('writeFile', inp, await fetchFile(file));
-
-    const q = Q[quality];
-    const args = ['-i', inp];
-
-    // 縮放：維持比例、不放大、確保偶數尺寸（libx264 必要）
-    if (q.scale !== 'original') {
-      const [w, h] = q.scale.split('x');
-      args.push('-vf',
-        `scale='min(${w},iw)':'min(${h},ih)':force_original_aspect_ratio=decrease,` +
-        `scale=trunc(iw/2)*2:trunc(ih/2)*2`
-      );
-    }
-
-    args.push(
-      '-c:v', 'libx264',
-      '-preset', 'fast',
-      '-crf', String(q.crf),
-      '-c:a', 'aac',
-      '-b:a', '128k',
-      '-movflags', '+faststart',
-      '-y', 'out.mp4'
-    );
-
-    setPct(4, '壓縮中...');
-    await ffmpeg.run(...args);
-    setPct(99, '完成輸出...');
-    const data = ffmpeg.FS('readFile', 'out.mp4');
-    blob = new Blob([data.buffer], { type: 'video/mp4' });
-    try { ffmpeg.FS('unlink', inp); } catch (_) {}
-    try { ffmpeg.FS('unlink', 'out.mp4'); } catch (_) {}
-    outName = file.name.replace(/\.[^.]+$/, '') + '_compressed.mp4';
-    setPct(100, '完成！');
-    showResult();
-  } catch (e) {
-    const msg = e.message || String(e);
-    document.getElementById('plog').textContent = '錯誤：' + msg;
-    toast('壓縮失敗，請查看進度列錯誤訊息', 'err');
-    document.getElementById('prog').classList.remove('show');
-    btn.disabled = false; btn.textContent = '⚡ 重新壓縮';
+  function setFFTarget(fillId, pctId, logId) {
+    _fillId = fillId; _pctId = pctId; _logId = logId;
   }
-}
 
-function showResult() {
-  document.getElementById('prog').classList.remove('show');
-  document.getElementById('rOrig').textContent = mb(file.size);
-  document.getElementById('rNew').textContent = mb(blob.size);
-  const s = Math.round((1 - blob.size/file.size)*100);
-  document.getElementById('rSave').textContent = (s>0?'↓':'↑') + Math.abs(s) + '%';
-  document.getElementById('result').classList.add('show');
-  const btn = document.getElementById('compBtn');
-  btn.disabled = false; btn.textContent = '⚡ 重新壓縮';
-  toast('壓縮完成！', 'ok');
-}
+  async function ensureFF(fillId, pctId, logId, labelId) {
+    setFFTarget(fillId, pctId, logId);
+    if (ffmpeg && ffmpeg.isLoaded()) return;
+    const { createFFmpeg } = FFmpeg;
+    ffmpeg = createFFmpeg({
+      log: true,
+      progress: ({ ratio }) => {
+        if (ratio > 0 && _fillId) {
+          const p = Math.min(Math.round(ratio * 94) + 4, 99);
+          setProg(_fillId, _pctId, p);
+        }
+      },
+      logger: ({ message }) => {
+        if (_logId) {
+          const el = document.getElementById(_logId);
+          if (el) el.textContent = message;
+        }
+      },
+    });
+    document.getElementById(labelId).textContent = '下載 FFmpeg 核心（首次約需 30 秒）...';
+    setProg(fillId, pctId, 3);
+    await ffmpeg.load();
+  }
 
-function dl() {
-  if (!blob) return;
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob); a.download = outName; a.click();
-}
+  // ════════════════════════════════════════════════════════════════════════
+  // 壓縮工具
+  // ════════════════════════════════════════════════════════════════════════
+  const QUALITY = {
+    high:     { crf: 20, scale: 'original' },
+    balanced: { crf: 26, scale: '1280x720' },
+    small:    { crf: 33, scale: '854x480'  },
+  };
+  let cQuality = 'balanced', cFile = null, cBlob = null, cOutName = '';
 
-function reset() {
-  file = null; blob = null; duration = 0;
-  document.getElementById('fileInfo').classList.remove('show');
-  document.getElementById('zone').style.display = '';
-  document.getElementById('prog').classList.remove('show');
-  document.getElementById('result').classList.remove('show');
-  document.getElementById('compBtn').disabled = true;
-  document.getElementById('compBtn').textContent = '選擇影片後開始壓縮';
-  document.getElementById('fi').value = '';
-  document.getElementById('thumb').src = '';
-}
+  window.setQ = (el, key) => {
+    document.querySelectorAll('.qbtn').forEach(b => b.classList.remove('active'));
+    el.classList.add('active');
+    cQuality = key;
+  };
 
-function setPct(p, label) {
-  document.getElementById('fill').style.width = p + '%';
-  document.getElementById('progPct').textContent = p + '%';
-  document.getElementById('progLabel').textContent = label;
-}
-function mb(b) { return b<1048576 ? (b/1024).toFixed(0)+' KB' : (b/1048576).toFixed(2)+' MB'; }
-function fmt(s) {
-  const h=Math.floor(s/3600), m=Math.floor((s%3600)/60), sc=Math.floor(s%60);
-  return h ? `${h}:${pad(m)}:${pad(sc)}` : `${m}:${pad(sc)}`;
-}
-function pad(n) { return String(n).padStart(2,'0'); }
-function toast(msg, type='info') {
-  const t = document.getElementById('toast');
-  t.textContent = msg; t.className = `toast ${type} show`;
-  setTimeout(() => { t.className = 'toast'; }, 3000);
-}
+  // 拖曳
+  const cZone = document.getElementById('cZone');
+  cZone.addEventListener('dragover', e => { e.preventDefault(); cZone.classList.add('over'); });
+  cZone.addEventListener('dragleave', () => cZone.classList.remove('over'));
+  cZone.addEventListener('drop', e => {
+    e.preventDefault(); cZone.classList.remove('over');
+    const f = e.dataTransfer.files[0];
+    if (f && f.type.startsWith('video/')) cLoad(f); else toast('請選擇影片檔案', 'err');
+  });
+  document.getElementById('cFi').addEventListener('change', e => { if (e.target.files[0]) cLoad(e.target.files[0]); });
+
+  function cLoad(f) {
+    cFile = f; cBlob = null;
+    const v = document.getElementById('cThumb');
+    v.src = URL.createObjectURL(f);
+    v.onloadedmetadata = () => {
+      document.getElementById('cFres').textContent = `${v.videoWidth}×${v.videoHeight}`;
+      document.getElementById('cFdur').textContent = fmtTime(v.duration);
+    };
+    document.getElementById('cFname').textContent = f.name;
+    document.getElementById('cFsize').textContent = fmtMB(f.size);
+    show('cInfo'); hide('cZone');
+    removeClass('cResWrap', 'show'); removeClass('cProg', 'show');
+    const btn = document.getElementById('cBtn');
+    btn.disabled = false; btn.textContent = '⚡ 開始壓縮';
+  }
+
+  window.compress = async () => {
+    if (!cFile) return;
+    const btn = document.getElementById('cBtn');
+    btn.disabled = true; btn.textContent = '⏳ 處理中...';
+    addClass('cProg', 'show'); removeClass('cResWrap', 'show');
+    setProg('cFill', 'cProgPct', 0);
+    document.getElementById('cProgLabel').textContent = '載入 FFmpeg...';
+    try {
+      await ensureFF('cFill', 'cProgPct', 'cLog', 'cProgLabel');
+      document.getElementById('cProgLabel').textContent = '讀取影片...';
+      const { fetchFile } = FFmpeg;
+      const ext = cFile.name.substring(cFile.name.lastIndexOf('.'));
+      const inp = 'c_in' + ext;
+      ffmpeg.FS('writeFile', inp, await fetchFile(cFile));
+      const q = QUALITY[cQuality];
+      const args = ['-i', inp];
+      if (q.scale !== 'original') {
+        const [w, h] = q.scale.split('x');
+        args.push('-vf', `scale='min(${w},iw)':'min(${h},ih)':force_original_aspect_ratio=decrease,scale=trunc(iw/2)*2:trunc(ih/2)*2`);
+      }
+      args.push('-c:v', 'libx264', '-preset', 'fast', '-crf', String(q.crf), '-c:a', 'aac', '-b:a', '128k', '-movflags', '+faststart', '-y', 'c_out.mp4');
+      document.getElementById('cProgLabel').textContent = '壓縮中...';
+      await ffmpeg.run(...args);
+      setProg('cFill', 'cProgPct', 99);
+      const data = ffmpeg.FS('readFile', 'c_out.mp4');
+      cBlob = new Blob([data.buffer], { type: 'video/mp4' });
+      tryUnlink('c_in' + ext); tryUnlink('c_out.mp4');
+      cOutName = cFile.name.replace(/\.[^.]+$/, '') + '_compressed.mp4';
+      setProg('cFill', 'cProgPct', 100);
+      document.getElementById('cProgLabel').textContent = '完成！';
+      removeClass('cProg', 'show');
+      document.getElementById('cROrig').textContent = fmtMB(cFile.size);
+      document.getElementById('cRNew').textContent  = fmtMB(cBlob.size);
+      const s = Math.round((1 - cBlob.size / cFile.size) * 100);
+      document.getElementById('cRSave').textContent = (s > 0 ? '↓' : '↑') + Math.abs(s) + '%';
+      addClass('cResWrap', 'show');
+      btn.disabled = false; btn.textContent = '⚡ 重新壓縮';
+      toast('壓縮完成！', 'ok');
+    } catch (e) {
+      document.getElementById('cLog').textContent = '錯誤：' + (e.message || e);
+      toast('壓縮失敗，請查看錯誤訊息', 'err');
+      removeClass('cProg', 'show');
+      btn.disabled = false; btn.textContent = '⚡ 重新壓縮';
+    }
+  };
+
+  window.cDl = () => dlBlob(cBlob, cOutName);
+
+  window.cReset = () => {
+    cFile = null; cBlob = null;
+    removeClass('cInfo', 'show'); show('cZone');
+    removeClass('cProg', 'show'); removeClass('cResWrap', 'show');
+    const btn = document.getElementById('cBtn');
+    btn.disabled = true; btn.textContent = '選擇影片後開始壓縮';
+    document.getElementById('cFi').value = '';
+    document.getElementById('cThumb').src = '';
+  };
+
+  // ════════════════════════════════════════════════════════════════════════
+  // 裁剪工具
+  // ════════════════════════════════════════════════════════════════════════
+  let tFile = null, tBlob = null, tOutName = '', tDur = 0;
+  const tVideo = document.getElementById('tVideo');
+
+  tVideo.addEventListener('timeupdate', () => updateRangeBar());
+
+  const tZone = document.getElementById('tZone');
+  tZone.addEventListener('dragover', e => { e.preventDefault(); tZone.classList.add('over'); });
+  tZone.addEventListener('dragleave', () => tZone.classList.remove('over'));
+  tZone.addEventListener('drop', e => {
+    e.preventDefault(); tZone.classList.remove('over');
+    const f = e.dataTransfer.files[0];
+    if (f && f.type.startsWith('video/')) tLoad(f); else toast('請選擇影片檔案', 'err');
+  });
+  document.getElementById('tFi').addEventListener('change', e => { if (e.target.files[0]) tLoad(e.target.files[0]); });
+
+  function tLoad(f) {
+    tFile = f; tBlob = null;
+    tVideo.src = URL.createObjectURL(f);
+    tVideo.onloadedmetadata = () => {
+      tDur = tVideo.duration;
+      document.getElementById('tFdur').textContent = fmtTime(tDur);
+      document.getElementById('tEnd').value = fmtTimeFull(tDur);
+      document.getElementById('tRangeR').textContent = fmtTime(tDur);
+      updateRangeBar();
+    };
+    document.getElementById('tFname').textContent = f.name;
+    document.getElementById('tFsize').textContent = fmtMB(f.size);
+    show('tInfo'); hide('tZone');
+    addClass('tVidWrap', 'show');
+    document.getElementById('tControls').style.display = 'block';
+    removeClass('tResWrap', 'show'); removeClass('tProg', 'show');
+    document.getElementById('tStart').value = '00:00:00';
+    document.getElementById('tRangeL').textContent = '0:00';
+    const btn = document.getElementById('tBtn');
+    btn.disabled = false; btn.textContent = '✂️ 開始裁剪';
+  }
+
+
+  ['tStart', 'tEnd'].forEach(id => {
+    document.getElementById(id).addEventListener('input', () => {
+      const s = parseTime(document.getElementById('tStart').value);
+      const e = parseTime(document.getElementById('tEnd').value);
+      document.getElementById('tRangeL').textContent = fmtTime(s);
+      document.getElementById('tRangeR').textContent = fmtTime(e);
+      updateRangeBar();
+    });
+  });
+
+  function updateRangeBar() {
+    if (!tDur) return;
+    const s = parseTime(document.getElementById('tStart').value);
+    const e = parseTime(document.getElementById('tEnd').value);
+    const left  = Math.max(0, Math.min(100, s / tDur * 100));
+    const width = Math.max(0, Math.min(100 - left, (e - s) / tDur * 100));
+    document.getElementById('tRangeFill').style.left  = left + '%';
+    document.getElementById('tRangeFill').style.width = width + '%';
+  }
+
+  window.trimVideo = async () => {
+    if (!tFile) return;
+    const startSec = parseTime(document.getElementById('tStart').value);
+    const endSec   = parseTime(document.getElementById('tEnd').value);
+    if (endSec <= startSec) { toast('結束時間必須大於開始時間', 'err'); return; }
+    if (endSec > tDur + 0.5) { toast('結束時間超過影片長度', 'err'); return; }
+
+    const btn = document.getElementById('tBtn');
+    btn.disabled = true; btn.textContent = '⏳ 裁剪中...';
+    addClass('tProg', 'show'); removeClass('tResWrap', 'show');
+    setProg('tFill', 'tProgPct', 0);
+    document.getElementById('tProgLabel').textContent = '載入 FFmpeg...';
+    try {
+      await ensureFF('tFill', 'tProgPct', 'tLog', 'tProgLabel');
+      document.getElementById('tProgLabel').textContent = '讀取影片...';
+      const { fetchFile } = FFmpeg;
+      const ext = tFile.name.substring(tFile.name.lastIndexOf('.'));
+      const inp = 't_in' + ext;
+      ffmpeg.FS('writeFile', inp, await fetchFile(tFile));
+      setProg('tFill', 'tProgPct', 20);
+      document.getElementById('tProgLabel').textContent = '裁剪中...';
+      await ffmpeg.run('-ss', String(startSec), '-i', inp, '-t', String(endSec - startSec), '-c:v', 'libx264', '-preset', 'fast', '-crf', '18', '-c:a', 'aac', '-b:a', '128k', '-movflags', '+faststart', '-y', 't_out.mp4');
+      setProg('tFill', 'tProgPct', 95);
+      const data = ffmpeg.FS('readFile', 't_out.mp4');
+      tBlob = new Blob([data.buffer], { type: 'video/mp4' });
+      tryUnlink('t_in' + ext); tryUnlink('t_out.mp4');
+      const sv = document.getElementById('tStart').value.replace(/:/g, '');
+      const ev = document.getElementById('tEnd').value.replace(/:/g, '');
+      tOutName = tFile.name.replace(/\.[^.]+$/, '') + `_trim_${sv}-${ev}.mp4`;
+      setProg('tFill', 'tProgPct', 100);
+      document.getElementById('tProgLabel').textContent = '完成！';
+      removeClass('tProg', 'show');
+      document.getElementById('tRDur').textContent  = fmtTime(endSec - startSec);
+      document.getElementById('tRSize').textContent = fmtMB(tBlob.size);
+      document.getElementById('tROrig').textContent = fmtTime(tDur);
+      addClass('tResWrap', 'show');
+      btn.disabled = false; btn.textContent = '✂️ 重新裁剪';
+      toast('裁剪完成！', 'ok');
+    } catch (e) {
+      document.getElementById('tLog').textContent = '錯誤：' + (e.message || e);
+      toast('裁剪失敗，請查看錯誤訊息', 'err');
+      removeClass('tProg', 'show');
+      btn.disabled = false; btn.textContent = '✂️ 重新裁剪';
+    }
+  };
+
+  window.tDl = () => dlBlob(tBlob, tOutName);
+
+  window.tReset = () => {
+    tFile = null; tBlob = null; tDur = 0;
+    removeClass('tInfo', 'show'); show('tZone');
+    removeClass('tVidWrap', 'show');
+    document.getElementById('tControls').style.display = 'none';
+    removeClass('tProg', 'show'); removeClass('tResWrap', 'show');
+    const btn = document.getElementById('tBtn');
+    btn.disabled = true; btn.textContent = '選擇影片後設定區間';
+    document.getElementById('tFi').value = '';
+    tVideo.src = '';
+    document.getElementById('tStart').value = '00:00:00';
+    document.getElementById('tEnd').value   = '00:00:00';
+  };
+
+  // ── 工具函式 ─────────────────────────────────────────────────────────
+  function fmtMB(b) { return b < 1048576 ? (b / 1024).toFixed(0) + ' KB' : (b / 1048576).toFixed(2) + ' MB'; }
+  function fmtTime(s) {
+    if (isNaN(s) || s < 0) s = 0;
+    const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sc = Math.floor(s % 60);
+    return h ? `${h}:${pad(m)}:${pad(sc)}` : `${m}:${pad(sc)}`;
+  }
+  function fmtTimeFull(s) {
+    if (isNaN(s) || s < 0) s = 0;
+    const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sc = Math.floor(s % 60);
+    return `${pad(h)}:${pad(m)}:${pad(sc)}`;
+  }
+  function parseTime(str) {
+    if (!str) return 0;
+    const p = str.split(':').map(Number);
+    if (p.length === 3) return (p[0] || 0) * 3600 + (p[1] || 0) * 60 + (p[2] || 0);
+    if (p.length === 2) return (p[0] || 0) * 60 + (p[1] || 0);
+    return p[0] || 0;
+  }
+  function pad(n) { return String(n).padStart(2, '0'); }
+  function setProg(fillId, pctId, p) {
+    document.getElementById(fillId).style.width = p + '%';
+    document.getElementById(pctId).textContent  = p + '%';
+  }
+  function show(id) { document.getElementById(id).style.display = ''; }
+  function hide(id) { document.getElementById(id).style.display = 'none'; }
+  function addClass(id, cls) { document.getElementById(id).classList.add(cls); }
+  function removeClass(id, cls) { document.getElementById(id).classList.remove(cls); }
+  function tryUnlink(name) { try { ffmpeg.FS('unlink', name); } catch (_) {} }
+  function dlBlob(blob, name) {
+    if (!blob) return;
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = name; a.click();
+  }
+  function toast(msg, type = 'info') {
+    const t = document.getElementById('toast');
+    t.textContent = msg; t.className = `toast ${type} show`;
+    setTimeout(() => { t.className = 'toast'; }, 3000);
+  }
+
+})();
 </script>
 </body>
 </html>
