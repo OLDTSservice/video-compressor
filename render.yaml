@@ -2,6 +2,6 @@ services:
   - type: web
     name: video-compressor
     env: node
-    buildCommand: "npm install && sed -i \"s/__BUILD_TIME__/$(TZ='Asia/Taipei' date '+%Y-%m-%d %H:%M')/g\" public/index.html"
+    buildCommand: "npm install && sed -i \"s/__BUILD_TIME__/$(TZ='Asia/Taipei' date '+%Y-%m-%d %H:%M')/g\" index.html"
     startCommand: node server.js
     plan: free
