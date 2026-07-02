@@ -1,13 +1,7 @@
 services:
   - type: web
     name: video-compressor
-    env: static
-    staticPublishPath: .
-    buildCommand: "sed -i \"s/__BUILD_TIME__/$(TZ='Asia/Taipei' date '+%Y-%m-%d %H:%M')/g\" index.html"
-    headers:
-      - path: /*
-        name: Cross-Origin-Opener-Policy
-        value: same-origin
-      - path: /*
-        name: Cross-Origin-Embedder-Policy
-        value: require-corp
+    env: node
+    buildCommand: "npm install && sed -i \"s/__BUILD_TIME__/$(TZ='Asia/Taipei' date '+%Y-%m-%d %H:%M')/g\" public/index.html"
+    startCommand: node server.js
+    plan: free

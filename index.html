@@ -264,9 +264,12 @@ function load(f) {
 async function loadFF() {
   const { createFFmpeg } = FFmpeg;
   ffmpeg = createFFmpeg({
-    log: false,
+    log: true,
     progress: ({ ratio }) => {
       if (ratio > 0) setPct(Math.min(Math.round(ratio * 94) + 4, 99), '壓縮中...');
+    },
+    logger: ({ message }) => {
+      document.getElementById('plog').textContent = message;
     },
   });
   setPct(5, '下載 FFmpeg 核心（首次約需 30 秒）...');
@@ -287,25 +290,43 @@ async function compress() {
     const ext = file.name.substring(file.name.lastIndexOf('.'));
     const inp = 'in' + ext;
     ffmpeg.FS('writeFile', inp, await fetchFile(file));
+
     const q = Q[quality];
     const args = ['-i', inp];
+
+    // 縮放：維持比例、不放大、確保偶數尺寸（libx264 必要）
     if (q.scale !== 'original') {
       const [w, h] = q.scale.split('x');
-      args.push('-vf', `scale=${w}:${h}:force_original_aspect_ratio=decrease,pad=${w}:${h}:(ow-iw)/2:(oh-ih)/2`);
+      args.push('-vf',
+        `scale='min(${w},iw)':'min(${h},ih)':force_original_aspect_ratio=decrease,` +
+        `scale=trunc(iw/2)*2:trunc(ih/2)*2`
+      );
     }
-    args.push('-c:v','libx264','-preset','medium','-crf',String(q.crf),'-maxrate',q.maxrate,'-bufsize',`${parseInt(q.maxrate)*2}k`,'-c:a','aac','-b:a','128k','-movflags','+faststart','-y','out.mp4');
+
+    args.push(
+      '-c:v', 'libx264',
+      '-preset', 'fast',
+      '-crf', String(q.crf),
+      '-c:a', 'aac',
+      '-b:a', '128k',
+      '-movflags', '+faststart',
+      '-y', 'out.mp4'
+    );
+
     setPct(4, '壓縮中...');
     await ffmpeg.run(...args);
     setPct(99, '完成輸出...');
     const data = ffmpeg.FS('readFile', 'out.mp4');
     blob = new Blob([data.buffer], { type: 'video/mp4' });
-    ffmpeg.FS('unlink', inp);
-    ffmpeg.FS('unlink', 'out.mp4');
+    try { ffmpeg.FS('unlink', inp); } catch (_) {}
+    try { ffmpeg.FS('unlink', 'out.mp4'); } catch (_) {}
     outName = file.name.replace(/\.[^.]+$/, '') + '_compressed.mp4';
     setPct(100, '完成！');
     showResult();
   } catch (e) {
-    toast('壓縮失敗：' + e.message, 'err');
+    const msg = e.message || String(e);
+    document.getElementById('plog').textContent = '錯誤：' + msg;
+    toast('壓縮失敗，請查看進度列錯誤訊息', 'err');
     document.getElementById('prog').classList.remove('show');
     btn.disabled = false; btn.textContent = '⚡ 重新壓縮';
   }
