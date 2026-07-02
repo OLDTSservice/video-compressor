@@ -343,7 +343,7 @@
     };
     document.getElementById('cFname').textContent = f.name;
     document.getElementById('cFsize').textContent = fmtMB(f.size);
-    show('cInfo'); hide('cZone');
+    addClass('cInfo', 'show'); hide('cZone');
     removeClass('cResWrap', 'show'); removeClass('cProg', 'show');
     const btn = document.getElementById('cBtn');
     btn.disabled = false; btn.textContent = '⚡ 開始壓縮';
