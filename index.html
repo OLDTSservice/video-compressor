@@ -370,7 +370,7 @@
         const [w, h] = q.scale.split('x');
         args.push('-vf', `scale='min(${w},iw)':'min(${h},ih)':force_original_aspect_ratio=decrease,scale=trunc(iw/2)*2:trunc(ih/2)*2`);
       }
-      args.push('-c:v', 'libx264', '-preset', 'fast', '-crf', String(q.crf), '-c:a', 'aac', '-b:a', '128k', '-movflags', '+faststart', '-y', 'c_out.mp4');
+      args.push('-c:v', 'libx264', '-preset', 'ultrafast', '-crf', String(q.crf), '-c:a', 'aac', '-b:a', '128k', '-movflags', '+faststart', '-y', 'c_out.mp4');
       document.getElementById('cProgLabel').textContent = '壓縮中...';
       await ffmpegC.run(...args);
       if (cCancelled) return;
